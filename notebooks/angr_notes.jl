@@ -210,7 +210,7 @@ gadgets = begin
 end
 
 # ╔═╡ f9af3aa8-12ec-11eb-0160-210e873d7576
-pchain = ROP_analysis.set_regs(eax=0x1337, ebx=0xdeadbeef)
+pchain = ROP_analysis.set_regs(eax=0x1337, ecx=0xf00dface)
 
 # ╔═╡ 88a6dcec-1307-11eb-0c48-ddbb917df77d
 pchain.print_payload_code()
@@ -271,13 +271,13 @@ callback =
 end
 
 # ╔═╡ 75348172-1312-11eb-1080-8132da73ab2d
-hh = code_hook_add(emu, callback = callback)
-
-# ╔═╡ 9243df24-1312-11eb-106d-6d45eded343d
-md"We'll be able to access this enclosed list using dot notation, which is a real treat: `callback.dis` == $((callback.dis))."
+hh = begin 
+	delete_all_hooks(emu)
+	code_hook_add(emu, callback = callback)
+end
 
 # ╔═╡ 43eae270-1313-11eb-00d3-4f369d33cb85
-start(emu, begin_addr = chain[1], until_addr = 0, steps = 16)
+start(emu, begin_addr = chain[1], until_addr = 0, steps = 32)
 
 # ╔═╡ 2a93aa72-1316-11eb-0768-2f307620e877
 md"#### Did it work?"
@@ -286,10 +286,10 @@ md"#### Did it work?"
 eax = reg_read(emu, X86.Register.EAX)
 
 # ╔═╡ 070e4b5e-1316-11eb-2fee-bbe96e21af0a
-ebx = reg_read(emu, X86.Register.EBX)
+ecx = reg_read(emu, X86.Register.ECX)
 
 # ╔═╡ a1693c42-1317-11eb-1e61-810cba6be9a7
-md"""#### $(eax == 0x1337 && ebx == 0xdeadbeef ? "Yes, it did!" :  "No, it did not work." )
+md"""#### $(eax == 0x1337 && ecx == 0xf00dface ? "Yes, it did!" :  "No, it did not work." )
 """
 
 # ╔═╡ 390649b6-1316-11eb-08b6-59750c7b44ee
@@ -408,12 +408,11 @@ md"Okay, so the instruction pointer is falling squarely within our executable se
 # ╟─26817e3c-1311-11eb-3b4f-e322b93d74fc
 # ╠═c52bff76-1311-11eb-2e63-95dbfe27b7d1
 # ╠═75348172-1312-11eb-1080-8132da73ab2d
-# ╠═9243df24-1312-11eb-106d-6d45eded343d
 # ╠═43eae270-1313-11eb-00d3-4f369d33cb85
 # ╟─2a93aa72-1316-11eb-0768-2f307620e877
 # ╠═dcfb9644-1315-11eb-2f1d-3b2744781029
 # ╠═070e4b5e-1316-11eb-2fee-bbe96e21af0a
-# ╟─a1693c42-1317-11eb-1e61-810cba6be9a7
+# ╠═a1693c42-1317-11eb-1e61-810cba6be9a7
 # ╟─390649b6-1316-11eb-08b6-59750c7b44ee
 # ╠═435ca81a-1316-11eb-306f-e75df10ea7b5
 # ╟─6655e098-1316-11eb-3e8c-456fcf76cea9

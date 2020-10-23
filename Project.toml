@@ -1,0 +1,10 @@
+name = "Slothrop"
+uuid = "696fdcb5-ec9d-4e85-bf22-d9b23da940f4"
+authors = ["lucca <lucca.fraser@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+Pluto = "c3e4b0f8-55cb-11ea-2926-15256bba5781"
+PyCall = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
+Unicorn = "46d714ca-0d86-11eb-00be-15840351e17c"
+unicorn_jll = "213bd155-00d0-5096-9019-d950e7998be8"

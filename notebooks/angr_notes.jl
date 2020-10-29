@@ -174,15 +174,15 @@ emu = begin
 	for s in our_segments
 		@show s.perms, s.perms & Perm.WRITE
 		if s.perms & Perm.WRITE == Perm.NONE
-			println("Using mem_map_array")
-			mem_map_array(emu, 
+			println("Using mem_map_array!")
+			mem_map_array!(emu, 
 				address = s.vaddr, 
 				size = length(s.data), 
 				array = s.data, 
 				perms = s.perms)
 		else
-			mem_map(emu, address = s.vaddr, size = length(s.data), perms = s.perms)
-			mem_write(emu, address = s.vaddr, bytes = s.data)
+			mem_map!(emu, address = s.vaddr, size = length(s.data), perms = s.perms)
+			mem_write!(emu, address = s.vaddr, bytes = s.data)
 		end
 	end
 	emu
@@ -240,16 +240,16 @@ WORD_SIZE = 4
 md"Now we copy the payload into stack memory."
 
 # ╔═╡ b1bb1810-1310-11eb-0bde-093fcd0ba63f
-mem_write(emu, address = STACK_POINTER, bytes = payload)
+mem_write!(emu, address = STACK_POINTER, bytes = payload)
 
 # ╔═╡ 0afe62ce-1311-11eb-2f48-399e8e6f27a1
 md"Then, pop the first word of the chain into the instruction pointer."
 
 # ╔═╡ c244e2d8-1310-11eb-2f7c-cbb1756c2e8f
-reg_write(emu, register = X86.Register.EIP, value = chain[1]) # not necessary
+reg_write!(emu, register = X86.Register.EIP, value = chain[1]) # not necessary
 
 # ╔═╡ 02882d96-1311-11eb-1fe5-2b96edfb8aec
-reg_write(emu, register = X86.Register.ESP, value = STACK_POINTER + WORD_SIZE)
+reg_write!(emu, register = X86.Register.ESP, value = STACK_POINTER + WORD_SIZE)
 
 # ╔═╡ 26817e3c-1311-11eb-3b4f-e322b93d74fc
 md"Let's install a disassembly hook so we can see what's going on."
@@ -272,12 +272,12 @@ end
 
 # ╔═╡ 75348172-1312-11eb-1080-8132da73ab2d
 hh = begin 
-	delete_all_hooks(emu)
-	code_hook_add(emu, callback = callback)
+	delete_all_hooks!(emu)
+	code_hook_add!(emu, callback = callback)
 end
 
 # ╔═╡ 43eae270-1313-11eb-00d3-4f369d33cb85
-start(emu, begin_addr = chain[1], until_addr = 0, steps = 32)
+start!(emu, address = chain[1], until = 0, steps = 32)
 
 # ╔═╡ 2a93aa72-1316-11eb-0768-2f307620e877
 md"#### Did it work?"
@@ -356,7 +356,7 @@ md"Okay, so the instruction pointer is falling squarely within our executable se
 # ╠═555e8c02-1278-11eb-1de0-b5a2da577ae0
 # ╟─76f92958-12e9-11eb-36f3-8bb5e9daaccc
 # ╠═b4759d44-12ea-11eb-2b9b-59f39d8901a8
-# ╟─e534b5d2-12ea-11eb-072e-b981fe1779d0
+# ╠═e534b5d2-12ea-11eb-072e-b981fe1779d0
 # ╠═8c893806-127a-11eb-20fd-4d87c4ad172d
 # ╠═36d0bd7c-127c-11eb-3c0c-f7d8a7ab0d2a
 # ╠═9fd155b2-127d-11eb-098d-87a4beea9b9c

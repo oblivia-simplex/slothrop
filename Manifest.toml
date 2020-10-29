@@ -151,9 +151,9 @@ version = "4.3.1+4"
 
 [[FileIO]]
 deps = ["Pkg"]
-git-tree-sha1 = "992b4aeb62f99b69fcf0cb2085094494cc05dfb3"
+git-tree-sha1 = "cad2e71389ecb2f4480e0de74faab04af13d7929"
 uuid = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
-version = "1.4.3"
+version = "1.4.4"
 
 [[FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
@@ -262,9 +262,9 @@ uuid = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 version = "0.1.14"
 
 [[JLLWrappers]]
-git-tree-sha1 = "7cec881362e5b4e367ff0279dd99a06526d51a55"
+git-tree-sha1 = "c70593677bbf2c3ccab4f7500d0f4dacfff7b75c"
 uuid = "692b3bcd-3c85-4b1f-b108-f13ce0eb3210"
-version = "1.1.2"
+version = "1.1.3"
 
 [[JSON]]
 deps = ["Dates", "Mmap", "Parsers", "Unicode"]
@@ -339,9 +339,9 @@ uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 
 [[MbedTLS]]
 deps = ["Dates", "MbedTLS_jll", "Random", "Sockets"]
-git-tree-sha1 = "426a6978b03a97ceb7ead77775a1da066343ec6e"
+git-tree-sha1 = "1c38e51c3d08ef2278062ebceade0e46cefc96fe"
 uuid = "739be429-bea8-5141-9913-cc70e7f3736d"
-version = "1.0.2"
+version = "1.0.3"
 
 [[MbedTLS_jll]]
 deps = ["Libdl", "Pkg"]
@@ -377,9 +377,9 @@ version = "1.1.0"
 
 [[Mustache]]
 deps = ["Printf", "Tables"]
-git-tree-sha1 = "26925183ee8926966a8387b437c5a5f33b6201cb"
+git-tree-sha1 = "f5d718790ff475b5b8ab9c1599ed105f0f24f253"
 uuid = "ffc61752-8dc7-55ee-8c37-f3e9cdd09e70"
-version = "1.0.7"
+version = "1.0.8"
 
 [[Mux]]
 deps = ["AssetRegistry", "Base64", "HTTP", "Hiccup", "Lazy", "Pkg", "Sockets", "WebSockets"]
@@ -632,7 +632,7 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 
 [[Unicorn]]
 deps = ["BinaryBuilder", "BitFlags", "Libdl", "Random", "Test", "unicorn_jll"]
-git-tree-sha1 = "f0c1533ee6a8e20b18e5c7b5bca781e4ca94eb4e"
+git-tree-sha1 = "bb1bbec28f7914a034462ece8c0617eec540bbb9"
 repo-rev = "master"
 repo-url = "https://github.com/oblivia-simplex/unicorn-jl"
 uuid = "46d714ca-0d86-11eb-00be-15840351e17c"

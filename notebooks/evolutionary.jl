@@ -103,7 +103,7 @@ md"Now, the familiar tournament function."
 
 # ╔═╡ c62e389a-1934-11eb-0672-b95358cdcaf2
 
-function tournament!(population, tsize)
+function tournament_β!(population, tsize)
 	@assert tsize ≥ 2
 	indices = StatsBase.sample(1:length(population), tsize, replace=false)
 	# At this point, if we can ensure that every worker has nonoverlapping
@@ -113,10 +113,10 @@ function tournament!(population, tsize)
 	sort(indices, by = i -> fitness_fn(population[i]))
 	parents = indices[1:2]
 	dead = indices[end-1:end]
-	offspring = one_point_crossover([population[i] for i in parents])
+	offspring = one_point_crossover([population[i...] for i in parents])
 	o = 1
 	for (child, slot) in zip(offspring, dead)
-		population[slot] = child
+		population[slot...] = child
 	end
 end
 
@@ -128,7 +128,7 @@ md"One question we should try to answer right away: is there any innate tendency
 
 # ╔═╡ 3169d630-193a-11eb-3923-f5b5d72775a6
 for i in 1:1000
-	tournament!(population, 4)
+	tournament_β!(population, 4)
 end
 
 # ╔═╡ 015ffe98-193e-11eb-0238-25fbdf757409
@@ -323,6 +323,12 @@ md"A hard radius can be implemented by using a ternary cutoff expression, like s
 # ╔═╡ 293db5aa-196a-11eb-1930-918249f36aae
 plot_geographical_radius(x -> x^8 > 0.3 ? 1.0 : 0.0)
 
+# ╔═╡ 7259e18c-1974-11eb-3345-579a0a799042
+waves(x) = max(0, sin(x^8 * 6π))
+
+# ╔═╡ 6c21d460-1973-11eb-13af-c3d2b10b16d8
+plot_geographical_radius(waves, [300,300])
+
 # ╔═╡ a0b8a888-1960-11eb-377a-51e381f3bd22
 md"What happens if we try to do this in higher dimension? We can't quite do the heatmap trick to visualize it, but it should work out well enough."
 
@@ -365,7 +371,7 @@ end
 scatter3d(coords(combatants)...)
 
 # ╔═╡ 1936db8e-1968-11eb-0078-af74996040c5
-geo1d = geography(dims = [1000], scaling = x -> x^4)
+geo1d = geography(dims = [1000], scaling = x -> tanh(x^8))
 
 # ╔═╡ fc030822-196b-11eb-15c1-13ff9d45e23e
 comb1d = vcat(combatant_indices(geo1d, 1000)...)
@@ -396,6 +402,27 @@ w1d_hard = geo_weights(geo1d_hard, origin=[comb1d_hard[1]])
 
 # ╔═╡ af93d00e-196e-11eb-1cf9-31490dc68c04
 plot(w1d_hard)
+
+# ╔═╡ 7e9c446a-1987-11eb-2376-2f158aaeafac
+md"## Geography and Tournaments"
+
+# ╔═╡ 87042cbc-1987-11eb-24aa-edca0ff78613
+function tournament!(
+		geo::Geography; 
+		tsize::Integer = 4, 
+		fitness_fn = _ -> rand(Float64))
+    @assert tsize ≥ 2 
+    indices = combatant_indices(geo, tsize)
+    sort(indices, by = i -> fitness_fn(geo.deme[i]))
+    parent_indices = indices[1:2]
+    dead = indices[end-1:end]
+    parents = [geo.deme[i...] for i in parent_indices]
+    offspring = one_point_crossover(parents)
+    for (child, slot) in zip(offspring, dead)
+        geo.deme[slot...] = child
+    end 
+end
+
 
 # ╔═╡ Cell order:
 # ╟─be0cc0f8-1551-11eb-05bc-6b23a6f12449
@@ -461,6 +488,8 @@ plot(w1d_hard)
 # ╠═ee6961ee-1960-11eb-2159-b15c13b654e6
 # ╠═3a6e64c6-196a-11eb-1d1a-c7e19c9e971c
 # ╠═293db5aa-196a-11eb-1930-918249f36aae
+# ╠═7259e18c-1974-11eb-3345-579a0a799042
+# ╠═6c21d460-1973-11eb-13af-c3d2b10b16d8
 # ╠═a0b8a888-1960-11eb-377a-51e381f3bd22
 # ╠═b5baebda-1968-11eb-1b0a-3d8f113e55b0
 # ╠═68650278-1961-11eb-2c0e-ff85a4bdcd0d
@@ -478,9 +507,11 @@ plot(w1d_hard)
 # ╠═cc4914ee-196d-11eb-3d00-eda117a451d4
 # ╠═7305f74e-196d-11eb-2b4e-95c24a81a15f
 # ╠═da599c0c-196d-11eb-128c-b96f052f7b4f
-# ╠═6bbbdd72-196e-11eb-0446-934abb82f41c
+# ╟─6bbbdd72-196e-11eb-0446-934abb82f41c
 # ╠═1c709af0-196e-11eb-1d51-9106d29ec60c
 # ╠═3a044936-196e-11eb-03e1-650c6f80e4ad
 # ╠═5f06411c-196e-11eb-1d52-4b3824b4e542
 # ╠═915269e8-196e-11eb-0d9c-1b7d57fc3ea8
 # ╠═af93d00e-196e-11eb-1cf9-31490dc68c04
+# ╟─7e9c446a-1987-11eb-2376-2f158aaeafac
+# ╠═87042cbc-1987-11eb-24aa-edca0ff78613

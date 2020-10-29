@@ -632,9 +632,7 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 
 [[Unicorn]]
 deps = ["BinaryBuilder", "BitFlags", "Libdl", "Random", "Test", "unicorn_jll"]
-git-tree-sha1 = "bb1bbec28f7914a034462ece8c0617eec540bbb9"
-repo-rev = "master"
-repo-url = "https://github.com/oblivia-simplex/unicorn-jl"
+path = "dev/Unicorn"
 uuid = "46d714ca-0d86-11eb-00be-15840351e17c"
 version = "0.1.0"
 

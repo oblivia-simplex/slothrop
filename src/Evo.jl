@@ -154,7 +154,7 @@ end
 function tournament!(geo::Geography; tsize::Integer = 4, fitness_fn = _ -> rand(Float64))
     @assert tsize ≥ 2
     indices = combatant_indices(geo, tsize)
-    sort(indices, by = i -> fitness_fn(geo.deme[i]))
+    sort(indices, by = i -> fitness_fn(geo.deme[i...]))
     parent_indices = indices[1:2]
     dead = indices[end-1:end]
     parents = [geo.deme[i...] for i in parent_indices]

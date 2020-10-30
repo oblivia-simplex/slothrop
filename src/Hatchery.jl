@@ -48,6 +48,7 @@ Base.@kwdef struct MemoryImage
     segs::Vector{Segment}
     path::String
     angr_proj::PyObject
+    ## TODO: store an initial register state here, too? 
 end
 
 function get_stack(mem::MemoryImage)::Union{Nothing, Segment}
@@ -101,12 +102,11 @@ function load(path)
 
 end
 
-function initialize_emulator(memory::Union{MemoryImage,Nothing} = nothing)::Emulator
-    global MEMORY
-    if memory ≡ nothing
-        memory = MEMORY
-    end
+function initialize_emulator()::Emulator
+    initialize_emulator(MEMORY)
+end
 
+function initialize_emulator(memory::MemoryImage)::Emulator
     emu = Emulator(Arch.X86, Mode.MODE_32)
     for s in memory.segs
         if s.perms & Perm.WRITE == Perm.NONE
@@ -262,25 +262,31 @@ function execute!(emu::Emulator;
                     profiler.insts = vcat(profiler.insts, profiler._insts)
                     profiler._insts = Vector{Inst}()
                 elseif is_syscall(inst, profiler.arch, profiler.mode)
-                    @show inst
                     uc_stop!(engine)
                 end # end if is_ret
-
-                
-
                 return nothing
             end # end closure
         end # end let binding
     # end of code_cb definition
     
-    hh = code_hook_add!(emu, callback = code_cb)
-    
+    code_hook_add!(emu, callback = code_cb)
     exit_code = start!(emu, address = chain[1], until = 0, steps = MAX_STEPS)
-
     delete_all_hooks!(emu)
-
     Profile(code_cb.profiler, exit_code)
-
 end # end execute!()
+
+"""
+A clean, functional interface to the emulator. This function will
+simply map a chain to its execution profile. A list of registers to
+read can be supplied as well.
+"""
+function evaluate(chain::Vector{N},
+                  registers::Vector{R}) where {N <: Integer, R <: Register}
+    execute!(initialize_emulator(), chain=chain, registers=registers)
+end
+
+function evaluate(chain::Vector{N}) where {N <: Integer}
+    evaluate(chain, Vector{Register}())
+end
 
 end # end module

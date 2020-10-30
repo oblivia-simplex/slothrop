@@ -3,22 +3,42 @@ module Evo
 using StatsBase
 using LinearAlgebra
 using Memoize
+using DataFrames
+using TOML
 
-Base.@kwdef mutable struct Genome{T}
+include("Hatchery.jl")
+include("Names.jl")
+
+mutable struct Genome{T}
     chromosome::Vector{T}
     name::String
-    generation::UInt
+    generation::Integer
     parents::Vector{String}
+    phenome::Union{Missing,Hatchery.Profile}
+    fitness::DataFrame
+    scalar_fitness::Union{Missing,Float64}
 end
 
-random_name() = "Unimplemented"
+function Genome{T}(;chromosome, generation, parents) where {T}
+    no_phenome::Union{Missing, Hatchery.Profile} = missing
+    Genome(chromosome, 
+           Names.rand_name(4), 
+           generation, 
+           parents,
+           no_phenome,
+           DataFrame(),
+           missing)
+end
 
-function random_genome(allele_type, min_len, max_len = min_len)
+function random_genome(allele_type; min_len, max_len = min_len, mem=Hatchery.MEMORY)
     Genome{allele_type}(
-        chromosome = rand(allele_type, rand(min_len:max_len)),
-        name = random_name(),
+        # TODO: take a parameter controlling proportions of each Perm, and of
+        # purely random numeric values.
+        chromosome = [
+            convert(allele_type,
+                    Hatchery.random_address()) for _ in 1:rand(min_len:max_len)],
         generation = 1,
-        parents = [],
+        parents = Vector{String}(),
     )
 end
 
@@ -49,15 +69,13 @@ Base.@propagate_inbounds function one_point_crossover(
     @assert length(c2) > 0
     parent_names = [p.name for p in parents]
     gen = maximum([p.generation for p in parents]) + 1
-    g1 = Genome(
+    g1 = Genome{T}(
         chromosome = c1,
-        name = random_name(),
         generation = gen,
         parents = parent_names,
     )
-    g2 = Genome(
+    g2 = Genome{T}(
         chromosome = c2,
-        name = random_name(),
         generation = gen,
         parents = parent_names,
     )
@@ -70,27 +88,50 @@ end
 Base.@kwdef mutable struct Geography{G,N}
     deme::Array{G,N}
     indices::Vector{Vector{Int64}}
-    scaling::Function
+    distance::Function
     toroidal::Bool
+    config::Dict{String,Any}
+    fitness_function!::Function
 end
 
-function geography(;
-    dims = [100, 100],
-    min_len = 1,
-    max_len = 100,
-    allele_type = UInt32,
-    scaling = identity,
-    toroidal = true,
+function compile_fitness_function(path::String)::Function
+    src = read(path, String)
+    exp = Meta.parse(src)
+    return eval(exp)
+end
+
+function geography(
+    config;
+    allele_type = UInt32, # TODO: infer this from MEMORY
 )
+    if config ≢ nothing
+        if config isa String
+            config = TOML.parsefile(config)
+        end
+        "binary" in keys(config) && Hatchery.load(config["binary"])
+
+        geo_conf = config["geography"]
+        fitness_function = compile_fitness_function(geo_conf["fitness_function"])
+        dims = geo_conf["dimensions"]
+        distance = eval(Meta.parse(geo_conf["distance"]))
+        toroidal = geo_conf["toroidal"]
+
+        gen_conf = config["genome"]
+        min_len = gen_conf["min_length"]
+        max_len = gen_conf["max_length"]
+    end
     index_array = [[Tuple(x)...] for x in CartesianIndices(Tuple([1:d for d in dims]))]
-    deme = [random_genome(allele_type, min_len, max_len) for _ in index_array]
+    deme = [random_genome(allele_type, min_len=min_len, max_len=max_len) 
+            for _ in index_array]
     indices = reshape(index_array, prod(size(index_array)))
 
     return Geography{Genome{allele_type},length(dims)}(
         deme = deme,
         indices = indices,
-        scaling = scaling,
+        distance = distance,
         toroidal = toroidal,
+        config = config,
+        fitness_function! = fitness_function,
     )
 end
 
@@ -133,7 +174,7 @@ end
         end
         weights = [dist(pt) for pt in geo.indices]
         maxw = maximum(weights)
-        ProbabilityWeights([geo.scaling(1.0 - w / maxw) for w in weights])
+        ProbabilityWeights([geo.distance(1.0 - w / maxw) for w in weights])
     end
 end
 
@@ -150,22 +191,47 @@ function combatant_indices(geo::Geography, n::Integer)::Vector
     return [first_index, sample(geo.indices, weights, n - 1)...]
 end
 
+"""
+`ff` is the fitness function. It needs to set two
+different fields in the `Genome` struct:
 
-function tournament!(geo::Geography; tsize::Integer = 4, fitness_fn = _ -> rand(Float64))
+1. the `.fitness` field, which is a `DataFrame`,
+   needs to be populated with the various fitness
+   attributes, derived from the genome's phenome.
+
+2. the `.scalar_fitness` field should be computed
+   in some fashion from the `.fitness` dataframe.
+
+The fitness function should assume that the `.phenome`
+of each genome has already been set, and is of type
+`Hatchery.Profile`. The fitness should, in general, 
+be a function of the phenome structure alone.
+"""
+function tournament!(geo::Geography)
+    tsize = geo.config["geography"]["tournament_size"]
+    mutation_rate = geo.config["genome"]["mutation_rate"]
     @assert tsize ≥ 2
     indices = combatant_indices(geo, tsize)
-    sort(indices, by = i -> fitness_fn(geo.deme[i...]))
+    for i in indices
+        g = geo.deme[i...]
+        if ismissing(g.phenome)
+            g.phenome = Hatchery.evaluate(g.chromosome)
+        end
+        geo.fitness_function!(g)
+    end
+    sort!(indices, 
+          rev = true,
+          by = i -> geo.deme[i...].scalar_fitness)
     parent_indices = indices[1:2]
     dead = indices[end-1:end]
     parents = [geo.deme[i...] for i in parent_indices]
     offspring = one_point_crossover(parents)
     for (child, slot) in zip(offspring, dead)
+        if rand(Float64) < mutation_rate
+            mutate!(child)
+        end
         geo.deme[slot...] = child
     end
 end
-
-
-
-
 
 end # module Evo

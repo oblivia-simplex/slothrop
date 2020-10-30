@@ -51,6 +51,12 @@ Base.@kwdef struct MemoryImage
     ## TODO: store an initial register state here, too? 
 end
 
+function random_address(;mem::MemoryImage=MEMORY, perms=Perm.EXEC)
+    seg = rand([s for s in mem.segs if s.perms & perms != Perm.NONE])
+    return rand(seg.address:(seg.address + length(seg.data)))
+end
+
+
 function get_stack(mem::MemoryImage)::Union{Nothing, Segment}
     for s in mem.segs
         if s.label == :stack

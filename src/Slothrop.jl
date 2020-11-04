@@ -1,5 +1,15 @@
 module Slothrop
+using TOML
 
-greet() = print("Hello World!")
+include("Evo.jl")
+
+function dispatch(configpath)
+
+    config = TOML.parsefile(configpath)
+
+    geo = Evo.geography(config)
+
+end
+
 
 end # module

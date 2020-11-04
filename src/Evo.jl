@@ -108,6 +108,7 @@ function geography(
         if config isa String
             config = TOML.parsefile(config)
         end
+        @show config
         "binary" in keys(config) && Hatchery.load(config["binary"])
 
         geo_conf = config["geography"]
@@ -121,6 +122,7 @@ function geography(
         max_len = gen_conf["max_length"]
     end
     index_array = [[Tuple(x)...] for x in CartesianIndices(Tuple([1:d for d in dims]))]
+    @info "Generating population of $(length(index_array)) genomes..."
     deme = [random_genome(allele_type, min_len=min_len, max_len=max_len) 
             for _ in index_array]
     indices = reshape(index_array, prod(size(index_array)))

@@ -4,8 +4,15 @@ using PyCall
 using Unicorn
 using Printf
 
-Angr = pyimport("angr")
-Capstone = pyimport("capstone")
+Angr = PyNULL()
+Capstone = PyNULL()
+
+function __init__()
+    copy!(Angr, pyimport("angr"))
+    copy!(Capstone, pyimport("capstone"))
+    @show Angr
+    @show Capstone
+end
 
 MEMORY = nothing
 
@@ -72,7 +79,7 @@ function load(path)
     if typeof(MEMORY) ≡ MemoryImage && MEMORY.path == path
         return MEMORY
     end
-
+    @info "Loading binary from $(path)..."
     proj = Angr.Project(path)
     mem = proj.loader.memory
 

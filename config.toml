@@ -11,3 +11,6 @@ distance = "x -> x^6"
 tournament_size = 4
 fitness_function = "fitness.jl"
 toroidal = true
+
+[distribution]
+nprocs = 4

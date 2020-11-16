@@ -4,12 +4,15 @@ using PyCall
 using Unicorn
 using Printf
 
+#__precompile__(false) 
+
 Angr = PyNULL()
 Capstone = PyNULL()
 
 function __init__()
+    @info "Initializing Python libraries..."
     copy!(Angr, pyimport("angr"))
-    copy!(Capstone, pyimport("capstone"))
+    #copy!(Capstone, pyimport("capstone"))
     @show Angr
     @show Capstone
 end

@@ -5,9 +5,14 @@ using LinearAlgebra
 using Memoize
 using DataFrames
 using TOML
+using FunctionWrappers: FunctionWrapper
 
 include("Hatchery.jl")
 include("Names.jl")
+
+export geography,
+    tournament!,
+    Genome
 
 mutable struct Genome{T}
     chromosome::Vector{T}
@@ -82,22 +87,32 @@ Base.@propagate_inbounds function one_point_crossover(
     return [g1, g2]
 end
 
+#==============================================================================
+TODO Consider implementing a `Distributed Array` geography.
 
+
+This would eliminate the need for a separate migration step, and may present a
+cleaner, simpler abstraction layer.
+
+You'd definitely want to make sure that the distance function was set in such
+a way that crossing process boundaries was a relatively rare event -- something
+that should be precisely tunable. 
+===============================================================================#
 
 
 Base.@kwdef mutable struct Geography{G,N}
     deme::Array{G,N}
     indices::Vector{Vector{Int64}}
-    distance::Function
+    distance::FunctionWrapper{Float64,Tuple{Float64}}
     toroidal::Bool
     config::Dict{String,Any}
-    fitness_function!::Function
+    fitness_function!::FunctionWrapper{Nothing,Tuple{Genome}}
 end
 
-function compile_fitness_function(path::String)::Function
+function compile_fitness_function(path::String)::FunctionWrapper{Nothing,Tuple{Genome}}
     src = read(path, String)
     exp = Meta.parse(src)
-    return eval(exp)
+    return eval(exp) |> FunctionWrapper{Nothing,Tuple{Genome}}
 end
 
 function geography(
@@ -114,7 +129,7 @@ function geography(
         geo_conf = config["geography"]
         fitness_function = compile_fitness_function(geo_conf["fitness_function"])
         dims = geo_conf["dimensions"]
-        distance = eval(Meta.parse(geo_conf["distance"]))
+        distance = eval(Meta.parse(geo_conf["distance"])) |> FunctionWrapper{Float64,Tuple{Float64}}
         toroidal = geo_conf["toroidal"]
 
         gen_conf = config["genome"]
@@ -235,5 +250,8 @@ function tournament!(geo::Geography)
         geo.deme[slot...] = child
     end
 end
+
+# TODO: can we write a function that (asynchronously?) performs as many tournaments
+# as possible, simultaneously?
 
 end # module Evo

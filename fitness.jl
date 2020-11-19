@@ -1,5 +1,7 @@
-g -> begin
-    g.fitness[:ret_count] = g.phenome.ret_count
-    # weighting
-    g.scalar_fitness = sum(g.fitness.ret_count)
+function fitness_function(phenome)
+    [:ret_count => phenome.ret_count]
+end
+
+function fitness_weighting(df)::Float64
+    sum(df.ret_count)
 end

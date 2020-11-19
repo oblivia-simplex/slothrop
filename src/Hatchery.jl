@@ -3,8 +3,11 @@ module Hatchery
 using PyCall
 using Unicorn
 using Printf
+using Distributed
 
 #__precompile__(false) 
+
+@info "Loading Hatchery..."
 
 Angr = PyNULL()
 Capstone = PyNULL()
@@ -12,7 +15,7 @@ Capstone = PyNULL()
 function __init__()
     @info "Initializing Python libraries..."
     copy!(Angr, pyimport("angr"))
-    #copy!(Capstone, pyimport("capstone"))
+    copy!(Capstone, pyimport("capstone"))
     @show Angr
     @show Capstone
 end
@@ -123,6 +126,7 @@ function initialize_emulator()::Emulator
 end
 
 function initialize_emulator(memory::MemoryImage)::Emulator
+    # TODO: don't hardcode the architecture
     emu = Emulator(Arch.X86, Mode.MODE_32)
     for s in memory.segs
         if s.perms & Perm.WRITE == Perm.NONE
@@ -231,9 +235,23 @@ function Base.show(io::IO, profile::Profile)
     println(io, repeat("-", w))
 end
 
+#=
+x86/x86_64 RETURN INSTRUCTIONS
+
+| Opcode* | Instruction | Op/En | 64-Bit | Compat/Leg | Description                                                      |
+|---------+-------------+-------+--------+------------+------------------------------------------------------------------|
+| C3      | RET         | ZO    | Valid  | Valid      | Near return to calling procedure.                                |
+| CB      | RET         | ZO    | Valid  | Valid      | Far return to calling procedure.                                 |
+| C2 iw   | RET imm16   | I     | Valid  | Valid      | Near return to calling procedure and pop imm16 bytes from stack. |
+| CA iw   | RET imm16   | I     | Valid  | Valid      | Far return to calling procedure and pop imm16 bytes from stack.  |
+
+=#
 function is_ret(inst::Inst, arch::Arch.t, mode::Mode.t)::Bool
     if arch == Arch.X86 
-        return length(inst.code) >= 1 && inst.code[1] == 0xc3
+        return ((length(inst.code) == 1 && (inst.code[1] == 0xc3 ||
+                                            inst.code[1] == 0xcb))
+                || (length(inst.code) == 3 && (inst.code[1] == 0xc2 ||
+                                               inst.code[1] == 0xca)))
     end
     return false
 end
@@ -297,11 +315,11 @@ simply map a chain to its execution profile. A list of registers to
 read can be supplied as well.
 """
 function evaluate(chain::Vector{N},
-                  registers::Vector{R}) where {N <: Integer, R <: Register}
+                  registers::Vector{R})::Profile where {N <: Integer, R <: Register}
     execute!(initialize_emulator(), chain=chain, registers=registers)
 end
 
-function evaluate(chain::Vector{N}) where {N <: Integer}
+function evaluate(chain::Vector{N})::Profile where {N <: Integer}
     evaluate(chain, Vector{Register}())
 end
 

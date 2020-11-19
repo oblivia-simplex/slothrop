@@ -260,20 +260,14 @@ function δ_tourney!(deme; tsize, mutation_rate, distance_λ=identity, toroidal)
         toroidal = toroidal)
     combatants = [combatant_1, sample(indices, weights, tsize-1, replace=false)...]
 
-    fetch.(hatch!(habitat[idx]) for idx in combatants)
-    # DEBUGGING
-#    for idx in combatants
-#        g = fetch(habitat[idx])
-#        @assert !ismissing(g.scalar_fitness)
-#        @show (idx, g.scalar_fitness)
-#    end
+    @sync for idx in combatants
+        @async hatch!(habitat[idx])
+    end
 
-    # FIXME: I'm still seeing "missing" values here. How is that happening?
     sort!(combatants, rev=true, by = i -> fetch(habitat[i]).scalar_fitness)
-    graves = indices[end-1:end]
+    graves = combatants[end-1:end]
     parent_indices = indices[1:2]
     parents = [fetch(habitat[i]) for i in parent_indices]
-    @show [p.scalar_fitness for p in parents]
     offspring = one_point_crossover(parents)
 
     for (child, grave) in zip(offspring, graves)

@@ -16,8 +16,8 @@ function __init__()
     @info "Initializing Python libraries..."
     copy!(Angr, pyimport("angr"))
     copy!(Capstone, pyimport("capstone"))
-    @show Angr
-    @show Capstone
+    #@show Angr
+    #@show Capstone
 end
 
 MEMORY = nothing
@@ -227,7 +227,7 @@ function Base.show(io::IO, profile::Profile)
     cs = Capstone.Cs(cs_arch(profile.arch), cs_mode(profile.mode))
     for inst in profile.insts
         for dis in cs.disasm(inst.code, inst.address)
-            @printf "\t0x%x:\t%s\t%s\n" dis.address dis.mnemonic dis.op_str
+            @printf io "\t0x%x:\t%s\t%s\n" dis.address dis.mnemonic dis.op_str
         end
     end
     println(io, "Return count: $(profile.ret_count)")
@@ -265,6 +265,30 @@ function is_syscall(inst::Inst, arch::Arch.t, mode::Mode.t)::Bool
     return false
 end
 
+#=
+| Opcode | Mnemonic      | Description                                                    |
+|--------+---------------+----------------------------------------------------------------|
+| E8 cw  | CALL rel16    | Call near, relative, displacement relative to next instruction |
+| E8 cd  | CALL rel32    | Call near, relative, displacement relative to next instruction |
+| FF /2  | CALL r/m16    | Call near, absolute indirect, address given in r/m16           |
+| FF /2  | CALL r/m32    | Call near, absolute indirect, address given in r/m32           |
+| 9A cd  | CALL ptr16:16 | Call far, absolute, address given in operand                   |
+| 9A cp  | CALL ptr16:32 | Call far, absolute, address given in operand                   |
+| FF /3  | CALL m16:16   | Call far, absolute indirect, address given in m16:16           |
+| FF /3  | CALL m16:32   | Call far, absolute indirect, address given in m16:32           |
+
+=#
+
+function is_direct_call(inst::Inst, arch::Arch.t, mode::Mode.t)::Bool
+    if arch == Arch.X86 && mode == Mode.MODE_32
+        if length(inst.code) == 5 && inst.code[1] in (0xe8, 0x9a)
+            return true
+        end
+    end
+    return false
+end
+
+
 function execute!(emu::Emulator; 
                   chain::Vector{N},
                   registers::Vector{R}=[]) where {N <: Integer, R <: Register}
@@ -295,7 +319,8 @@ function execute!(emu::Emulator;
                     profiler.regs = Dict(r => reg_read(emu, r) for r in registers)
                     profiler.insts = vcat(profiler.insts, profiler._insts)
                     profiler._insts = Vector{Inst}()
-                elseif is_syscall(inst, profiler.arch, profiler.mode)
+                elseif (is_syscall(inst, profiler.arch, profiler.mode)
+                        || is_direct_call(inst, profiler.arch, profiler.mode))
                     uc_stop!(engine)
                 end # end if is_ret
                 return nothing

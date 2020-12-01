@@ -1,7 +1,7 @@
 #! /usr/bin/env bash
 # -*- mode: julia -*-
 #=
-[ -n "$SLOTHROP_PROCS" ] || SLOTHROP_PROCS=`nproc`
+[ -n "$SLOTHROP_PROCS" ] || SLOTHROP_PROCS=$(( `nproc` - 2 ))
 
 export DIR="$(cd $(dirname ${BASH_SOURCE[0]}); pwd)"
 
@@ -36,6 +36,5 @@ end
 config = TOML.parsefile(configpath)
 @everywhere ENV["SLOTHROP_BINARY_PATH"] = $(config["binary"])
 
-geo = Slothrop.dispatch(configpath)
+Slothrop.dispatch(configpath)
 
-@info "Initialized geography of $(length(geo.deme)) individuals."

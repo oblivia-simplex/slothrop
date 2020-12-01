@@ -15,8 +15,9 @@ using DistributedArrays
 include("Hatchery.jl")
 include("Names.jl")
 include("../fitness.jl")
+include("./util/Rfetch.jl")
 
-
+rfetch = Rfetch.rfetch
 
 export geography,
     tournament!,
@@ -30,6 +31,7 @@ mutable struct Genome{T}
     phenome::Union{Missing,Task,Hatchery.Profile}
     fitness::DataFrame
     scalar_fitness::Union{Missing,Float64}
+    xp::Int
 end
 
 function Genome{T}(;chromosome, generation, parents) where {T}
@@ -40,7 +42,8 @@ function Genome{T}(;chromosome, generation, parents) where {T}
            parents,
            no_phenome,
            DataFrame(),
-           missing)
+           missing,
+           0)
 end
 
 function random_genome(allele_type; min_len, max_len = min_len, mem=Hatchery.MEMORY)
@@ -55,8 +58,9 @@ function random_genome(allele_type; min_len, max_len = min_len, mem=Hatchery.MEM
     )
 end
 
-function mutate!(genome::Genome)
-
+function mutate(genome::Genome)::Genome
+    @debug "Mutating $(genome.name)"
+    genome
 end
 
 # Let's define a maximum genome length now as a constant. Later, we'll want to
@@ -95,21 +99,6 @@ Base.@propagate_inbounds function one_point_crossover(
     return [g1, g2]
 end
 
-#==============================================================================
-TODO Consider implementing a `Distributed Array` geography.
-
-
-This would eliminate the need for a separate migration step, and may present a
-cleaner, simpler abstraction layer.
-
-You'd definitely want to make sure that the distance function was set in such
-a way that crossing process boundaries was a relatively rare event -- something
-that should be precisely tunable. 
-===============================================================================#
-
-
-# We could let the residents of the deme be EITHER futures or genomes.
-
 Base.@kwdef mutable struct Geography{G,N}
     deme #::Array{G,N}
     distance::FunctionWrapper{Float64,Tuple{Float64}}
@@ -131,7 +120,6 @@ function geography(
         if config isa String
             config = TOML.parsefile(config)
         end
-        @show config
         if "binary" in keys(config)
             Hatchery.load(config["binary"])
         end
@@ -149,19 +137,16 @@ function geography(
         min_len = gen_conf["min_length"]
         max_len = gen_conf["max_length"]
     end
+
     dimstr = join(string.(dims), "×")
     @info "Generating distributed population of $dimstr ($(prod(dims))) genomes..."
-    TYPE = Union{Genome{allele_type}, Task, Future}
+
     deme = DArray(dims, workers()) do I
-        @show I
-        d::Array{TYPE,length(dims)} =
+        d::Array{Union{Genome{allele_type}, Task, Future},length(dims)} =
             [@async random_genome(allele_type, min_len=min_len, max_len=max_len)
              for _ in zeros(length.(I))]
-        @show size(d)
         d
     end
-    #deme = [random_genome(allele_type, min_len=min_len, max_len=max_len) 
-    #        for _ in zeros(dims...)]
 
     return Geography{Genome{allele_type},length(dims)}(
         deme = deme,
@@ -235,63 +220,133 @@ end
     ProbabilityWeights([distance_λ(1.0 - w / maxweight) for w in weights])
 end
 
-function hatch!(genome)
-    genome = fetch(genome)
+zeromissing(m::Missing) = 0.0
+zeromissing(x) = x
+
+function choose_migrant(deme, pid; elitist=true)
+    @spawnat pid begin
+        # ignore unactualized individuals
+        fit(g::Future) = 0.0
+        fit(g::Union{Task,Genome}) = rfetch(g).scalar_fitness |> zeromissing
+        if elitist
+            fitnesses = map(fit, deme[:L])
+            weights = ProbabilityWeights(reshape(fitnesses, prod(size(deme[:L]))))
+            if iszero(weights)
+                @info "Migration weights are all zero in deme $pid"
+                index = sample(CartesianIndices(deme[:L]))
+            else
+                index = sample(CartesianIndices(deme[:L]), weights)
+            end
+        else
+            index = sample(CartesianIndices(deme[:L]))
+        end
+        (index, deme[:L][index])
+    end
+end
+
+# this is a purely random migration protocol.
+# we might want to experiment with a more elitist protocol
+function migrate!(geo)
+    deme = geo.deme
+    δ₁, δ₂ = sample(CartesianIndices(procs(deme)),
+                    2, replace=false)
+    pid₁, pid₂ = procs(deme)[δ₁], procs(deme)[δ₂]
+
+    #@time slot₁, migrant₁ = choose_migrant(deme, pid₁, elitist=true) |> rfetch
+    #slot₂, migrant₂ = choose_migrant(deme, pid₂, elitist=true) |> rfetch
+    areas = [collect(deme.indices[δ]) for δ in (δ₁, δ₂)]
+    
+    slot₁, slot₂ = [CartesianIndex((rand.(I) - first.(I)).+1...) for I in areas]
+    @info "Migrating $(Tuple(slot₁)) in deme $pid₁ and $(Tuple(slot₂)) in deme $pid₂"
+    migrant₁ = @spawnat pid₁ deme[:L][slot₁]
+    migrant₂ = @spawnat pid₂ deme[:L][slot₂]
+    
+
+    @spawnat pid₁ deme[:L][slot₁] = migrant₂
+    @spawnat pid₂ deme[:L][slot₂] = migrant₁
+end
+
+
+function hatch(genome)
+    genome = rfetch(genome)
+    genome.xp += 1
     if ismissing(genome.phenome)
         genome.phenome = Hatchery.evaluate(genome.chromosome)
     end
     genome.fitness = fitness_function(genome.phenome) |> DataFrame
     genome.scalar_fitness = fitness_weighting(genome.fitness)
+    @debug "$(genome.name) has fitness $(genome.scalar_fitness)"
     @assert !ismissing(genome.scalar_fitness)
     genome
 end
 
 
-function δ_tourney!(deme; tsize, mutation_rate, distance_λ=identity, toroidal)
-    habitat = deme[:L]
-    # TODO implement migration as relaxation of deme from localpart to global
-    # or possibly region
-    indices = CartesianIndices(habitat)
-    combatant_1 = rand(indices)
+function δ_tourney!(deme; tsize, mutation_rate, distance_λ=x -> x^4, toroidal)
+    @debug "In δ_tourney!"
+    indices = CartesianIndices(deme[:L])
+    combatant₁ = rand(indices)
     weights = distance_weights(
         indices,
-        origin = combatant_1,
+        origin = combatant₁,
         distance_λ = distance_λ,
         toroidal = toroidal)
-    combatants = [combatant_1, sample(indices, weights, tsize-1, replace=false)...]
+    combatants = []
+    tries = 0
 
-    @sync for idx in combatants
-        @async hatch!(habitat[idx])
+    combatants = [combatant₁]
+    while length(combatants) < tsize
+        tries += 1
+        c = sample(indices, weights)
+        if !(c in combatants)
+            push!(combatants, c)
+        end
     end
 
-    sort!(combatants, rev=true, by = i -> fetch(habitat[i]).scalar_fitness)
+    if tries > 2*tsize
+        @debug "took $tries tries to get $tsize unique combatants"
+    end
+    #for idx in combatants
+        # TODO: figure out why we can get a deadlock here, if async
+    #    deme[:L][idx] = hatch(deme[:L][idx])
+    #end
+    for (idx, g) in asyncmap(i -> (i, hatch(deme[:L][i])), combatants)
+        deme[:L][idx] = g
+    end
+
+    sort!(combatants, rev=true, by = i -> rfetch(deme[:L][i]).scalar_fitness)
     graves = combatants[end-1:end]
-    parent_indices = indices[1:2]
-    parents = [fetch(habitat[i]) for i in parent_indices]
+    parents = [rfetch(deme[:L][i]) for i in indices[1:2]]
     offspring = one_point_crossover(parents)
 
     for (child, grave) in zip(offspring, graves)
         if rand(Float64) < mutation_rate
-            mutate!(fetch(child))
+            child = mutate(rfetch(child))
         end
         # Here's the only place where the array itself is mutated:
-        habitat[grave] = child
+        @debug "[$(myid())] child: $(child.name) of $(child.parents)"
+        deme[:L][grave] = child
     end
 end
 
-function δ_tournament!(geo::Geography)
+function tournament!(geo::Geography)
     tsize = geo.config["geography"]["tournament_size"]
+    migration_rate = geo.config["geography"]["migration_rate"]
     mutation_rate = geo.config["genome"]["mutation_rate"]
     deme = geo.deme
-    distance_λ = geo.distance
     toroidal = geo.toroidal
+    # One potential issue with this setup is that it's always going to be
+    # slowed to the speed of the slowest processor involved.
+    # It might be wise to loosen this up a little, and avoid requiring each
+    # processor to run in lockstep.
     @distributed for w in workers()
         δ_tourney!(
             deme,
             tsize = tsize,
             mutation_rate = mutation_rate,
-            #distance_λ = distance_λ,
             toroidal = toroidal)
+    end
+    if rand(Float64) < migration_rate
+        migrate!(geo)
     end
 end
 

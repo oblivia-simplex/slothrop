@@ -1,0 +1,11 @@
+#+TITLE: Research notes for SLOTHROP
+
+#+PROPERTY: header-args :exports none :tangle "~/bibliographies/bibtex/research.bib"
+#+LATEX_CLASS_OPTIONS: [12pt]
+#+LATEX_HEADER: \usepackage[natbib=true]{biblatex} \DeclareFieldFormat{apacase}{#1} \addbibresource{./bibliography.bib}
+#+LATEX_HEADER: \usepackage{parskip}
+#+OPTIONS: <:nil c:nil todo:nil H:5
+
+* Genotypes in Latent Space
+
+  Lauren's idea.

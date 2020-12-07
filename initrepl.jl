@@ -20,4 +20,7 @@ println(banner)
 
 #Pkg.activate(".")
 
-#using Slothrop
+using Slothrop
+using StatsBase
+using Statistics
+using Pluto

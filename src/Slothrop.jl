@@ -13,6 +13,7 @@ using Statistics
 
 #include("Evo.jl")
 
+@everywhere OBSERVER = nothing
 
 function dispatch(config)
     started = now()
@@ -27,6 +28,10 @@ function dispatch(config)
 
     geo = Evo.geography(config)
 
+    # Initialize the observers
+    observer = Evo.Observer(config)
+    @everywhere global OBSERVER = $observer
+    
     # let's do a few test tournaments
     n = config["iterations"]
     @info "Running $n tournaments..."
@@ -35,21 +40,20 @@ function dispatch(config)
         Evo.tournament!(geo)
     end
     @info "Finished $n tournaments in $(now() - t_start)."
-    population = [Evo.rfetch(g) for g in geo.deme] |> vec
-    sort!(population,
-          rev=true,
-          by=(g -> ismissing(g.scalar_fitness) ? 0.0 : g.scalar_fitness))
-    fits = [g.scalar_fitness for g in population] |> skipmissing
-    @info "Mean fitness: $(mean(fits))"
-    @info "Standard deviation: $(std(fits))"
-    @info "Maximum fitness: $(maximum(fits))"
-    @info "Champion:\n$(first(population))"
+    #population = [Evo.rfetch(g) for g in geo.deme] |> vec
+    #sort!(population,
+    #      rev=true,
+    #      by=(g -> ismissing(g.scalar_fitness) ? 0.0 : g.scalar_fitness))
+    #fits = [g.scalar_fitness for g in population] |> skipmissing
+    #@info "Mean fitness: $(mean(fits))"
+    #@info "Standard deviation: $(std(fits))"
+    #@info "Maximum fitness: $(maximum(fits))"
+    #@info "Champion:\n$(first(population))"
     @info "Total time elapsed: $(now() - started)"
 
     geo
 end
 
-population(geo) = [Evo.rfetch(g) for g in geo.deme] |> vec
 
 
 

@@ -9,6 +9,7 @@ using DataFrames
 using TOML
 using FunctionWrappers: FunctionWrapper
 using DistributedArrays
+using DataStructures: CircularBuffer
 
 @info "Loading Evo..."
 
@@ -22,6 +23,34 @@ rfetch = Rfetch.rfetch
 export geography,
     tournament!,
     Genome
+
+
+mutable struct Observer
+    window::CircularBuffer
+    windowsize::Int
+    config::Dict
+    counter::Int
+
+    Observer(config) = begin
+        windowsize = config["geography"]["dimensions"] |> prod
+        window = CircularBuffer(windowsize)
+        counter = 0
+        @info "Initializing Observer"
+        new(window, windowsize, config, counter)
+    end
+end
+
+function observe!(observer, creature)
+    push!(observer.window, creature)
+    observer.counter += 1
+    if observer.counter % length(observer.window) == 0
+        mean_fitness = [rfetch(g).scalar_fitness for g in observer.window] |> skipmissing |> mean
+        @info "Mean fitness on worker $(myid()) is $mean_fitness"
+        # Analyse and report
+    end
+end
+
+# TODO: put observer in its own module, or file, perhaps
 
 mutable struct Genome{T}
     chromosome::Vector{T}
@@ -58,8 +87,11 @@ function random_genome(allele_type; min_len, max_len = min_len, mem=Hatchery.MEM
     )
 end
 
-function mutate(genome::Genome)::Genome
-    @debug "Mutating $(genome.name)"
+function mutate!(genome::Genome)::Genome
+    # Shitty mutation function, improve this later.
+    # All this does, for now, is choose an allele at random and flip a bit
+    index, allele = rand(collect(enumerate(genome.chromosome)))
+    genome.chromosome[index] ⊻= 1 << rand(0:31) # might want to generalize to 64bit
     genome
 end
 
@@ -283,7 +315,7 @@ end
 
 function δ_tourney!(deme; tsize, mutation_rate, distance_λ=x -> x^4, toroidal)
     @debug "In δ_tourney!"
-    indices = CartesianIndices(deme[:L])
+    indices = CartesianIndices(deme)
     combatant₁ = rand(indices)
     weights = distance_weights(
         indices,
@@ -302,29 +334,26 @@ function δ_tourney!(deme; tsize, mutation_rate, distance_λ=x -> x^4, toroidal)
         end
     end
 
-    if tries > 2*tsize
+    if tries > 2tsize
         @debug "took $tries tries to get $tsize unique combatants"
     end
-    #for idx in combatants
-        # TODO: figure out why we can get a deadlock here, if async
-    #    deme[:L][idx] = hatch(deme[:L][idx])
-    #end
-    for (idx, g) in asyncmap(i -> (i, hatch(deme[:L][i])), combatants)
-        deme[:L][idx] = g
+ 
+    for (idx, g) in asyncmap(i -> (i, hatch(deme[i])), combatants)
+        deme[idx] = g
     end
 
-    sort!(combatants, rev=true, by = i -> rfetch(deme[:L][i]).scalar_fitness)
+    sort!(combatants, rev=true, by = i -> rfetch(deme[i]).scalar_fitness)
     graves = combatants[end-1:end]
-    parents = [rfetch(deme[:L][i]) for i in indices[1:2]]
+    parents = [rfetch(deme[i]) for i in indices[1:2]]
     offspring = one_point_crossover(parents)
 
     for (child, grave) in zip(offspring, graves)
         if rand(Float64) < mutation_rate
-            child = mutate(rfetch(child))
+            mutate!(rfetch(child))
         end
         # Here's the only place where the array itself is mutated:
         @debug "[$(myid())] child: $(child.name) of $(child.parents)"
-        deme[:L][grave] = child
+        deme[grave] = child
     end
 end
 
@@ -340,7 +369,7 @@ function tournament!(geo::Geography)
     # processor to run in lockstep.
     @distributed for w in workers()
         δ_tourney!(
-            deme,
+            deme[:L],
             tsize = tsize,
             mutation_rate = mutation_rate,
             toroidal = toroidal)
@@ -349,5 +378,6 @@ function tournament!(geo::Geography)
         migrate!(geo)
     end
 end
+
 
 end # module Evo

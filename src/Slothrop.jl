@@ -6,12 +6,15 @@ using TOML
 using StatsBase
 using Statistics
 
-@everywhere using Evo
 
 #const IN_SLURM = "SLURM_JOBID" in keys(ENV)
 #IN_SLURM && using ClusterManagers
 
-#include("Evo.jl")
+# The implicit PWD for the master node is the parent dir
+# of this file.
+include("Evo.jl")
+# Annoyingly, the implicit PWD for workers is up a step
+@everywhere include("src/Evo.jl")
 
 @everywhere OBSERVER = nothing
 

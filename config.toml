@@ -1,6 +1,6 @@
 binary = "./binaries/X86/MODE_32/sshd"
 random_seed = 0xf00d
-iterations = 100000
+iterations = 1000
 
 [genome]
 mutation_rate = 0.02
@@ -8,7 +8,7 @@ min_length = 10
 max_length = 500
 
 [geography]
-dimensions = [32, 32]
+dimensions = [16, 16]
 distance = "x -> x^6"
 tournament_size = 4
 toroidal = true

@@ -1,11 +1,14 @@
 #! /usr/bin/env bash
 # -*- mode: julia -*-
 #=
-[ -n "$SLOTHROP_PROCS" ] || SLOTHROP_PROCS=$(( `nproc` - 2 ))
+[ -n "$SLOTHROP_PROCS" ] || SLOTHROP_PROCS=$(( `nproc` / 2 ))
+
+[ -d binaries ] || tar xvf binaries.tgz
 
 export DIR="$(cd $(dirname ${BASH_SOURCE[0]}); pwd)"
 
 exec julia --color=yes \
+           --project \
            --procs=${SLOTHROP_PROCS} \
            --startup-file=no \
            "${BASH_SOURCE[0]}" \

@@ -5,7 +5,6 @@ using Unicorn
 using Printf
 using Distributed
 
-#__precompile__(false) 
 
 @info "Loading Hatchery..."
 
@@ -64,9 +63,9 @@ Base.@kwdef struct MemoryImage
     ## TODO: store an initial register state here, too? 
 end
 
-function random_address(;mem::MemoryImage=MEMORY, perms=Perm.EXEC)
+function random_address(;mem::MemoryImage=MEMORY, perms=Perm.EXEC, Type=UInt32)
     seg = rand([s for s in mem.segs if s.perms & perms != Perm.NONE])
-    return rand(seg.address:(seg.address + length(seg.data)))
+    return rand(seg.address:(seg.address + length(seg.data))) |> Type
 end
 
 
@@ -152,6 +151,9 @@ function load_chain!(emu::Emulator, chain::Vector{N}) where {N <: Integer}
     end
     sp = UInt64(stack.address + STACK_SIZE / 2)
     payload = reinterpret(UInt8, chain)
+    if length(payload) > STACK_SIZE/2
+      payload = payload[1:Int(STACK_SIZE/2)]
+    end
     mem_write!(emu, address = sp, bytes = payload)
     reg_write!(emu, register = Unicorn.stack_pointer(emu), value = sp + word_size(emu))
 end

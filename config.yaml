@@ -1,0 +1,22 @@
+binary_path: "./binaries/X86/MODE_32/sshd"
+n_gen: 10000
+d_fitness: 1
+log_gen: 5
+save_gen: 10
+t_size: 6
+
+
+genotype:
+  min_len: 5
+  max_len: 100
+  mutation_rate: 0.01
+
+population:
+  size: [40, 40]
+  toroidal: true
+  locality: 16
+  t_size: 6
+  n_elites: 10
+
+
+

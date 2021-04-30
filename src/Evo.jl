@@ -118,16 +118,16 @@ mutable struct Evolution
 end
 
 
-function Evolution(config::NamedTuple, fitness::Function; logfile="logs/$(config.id).csv")
+function Evolution(config::NamedTuple; fitness::Function, tracers=[])
     logger = nothing # TODO
-    geo = Geo.Geography(Creature, config)
+    geo = Geo.Geography(Creature, config, tracers=tracers)
     Evolution(config, logger, geo, fitness, 0, [])
 end
 
 
-function Evolution(config::String, fitness::Function) 
+function Evolution(config::String; fitness::Function, tracers=[]) 
     cfg = Config.parse(config)
-    Evolution(cfg, fitness)
+    Evolution(cfg, fitness=fitness, tracers=tracers)
 end
 
 
@@ -139,16 +139,11 @@ function preserve_elites!(evo::Evolution)
 end 
 
 
-DEFAULT_TRACE = [
-  Tracer(key="fitness:1", callback=(g -> g.fitness[1])),
-  Tracer(key="chromosome_len", callback=(g -> length(g.chromosome))),
-  Tracer(key="num_offspring", callback=(g -> g.num_offspring)),
-  Tracer(key="generation", callback=(g -> g.generation)),
- ]
+# TODO: make the tracer set a field of Geography
+# and pass the tracers into the Geography constructor 
 
-
-function step!(evo::Evolution; crossover=crossover, eval_children=false, trace=DEFAULT_TRACE)
-    ranking = Geo.tournament(evo.geo, evo.fitness, trace=trace)
+function step!(evo::Evolution; crossover=crossover, eval_children=false)
+    ranking = Geo.tournament(evo.geo, evo.fitness)
     parents = evo.geo[ranking[end-1:end]]
     children = crossover(parents...)
     if eval_children
@@ -159,6 +154,7 @@ function step!(evo::Evolution; crossover=crossover, eval_children=false, trace=D
     evo.geo[graves] = children
     preserve_elites!(evo)
     evo.iteration += 1
+    Geo.trace!(evo.geo)
     nothing
 end
 

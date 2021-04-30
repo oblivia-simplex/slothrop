@@ -11,9 +11,18 @@ function embark(x)
 end
 
 
-function disembark()
+function disembark_block()
     @show (myid(), isready(FERRY))
     take!(FERRY)
+end
+
+
+function disembark()
+  if isready(FERRY)
+    take!(FERRY)
+  else
+    nothing
+  end
 end
 
 end # End module

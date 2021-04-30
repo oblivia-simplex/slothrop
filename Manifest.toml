@@ -140,7 +140,7 @@ version = "0.4.0"
 
 [[Cockatrice]]
 deps = ["BenchmarkTools", "CSV", "DataFrames", "Dates", "Distributed", "ImageInTerminal", "ImageView", "Images", "Memoize", "Plots", "RecursiveArrayTools", "StatsBase", "YAML"]
-git-tree-sha1 = "605622c6b5392df57336abab22442ed207d3a4d8"
+git-tree-sha1 = "35419ca548a27cbb94c91d4a9eb769644503d8ef"
 repo-rev = "main"
 repo-url = "../Cockatrice"
 uuid = "9717ed07-727c-442c-8f6f-35ef42c1d4d5"

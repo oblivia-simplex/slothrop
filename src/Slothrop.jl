@@ -1,3 +1,5 @@
+using Distributed
+
 @everywhere push!(LOAD_PATH, @__DIR__)
 @everywhere using Pkg
 @everywhere Pkg.activate("$(@__DIR__)/..")
@@ -7,14 +9,6 @@
 @everywhere using Cockatrice.Config
 @everywhere using Cockatrice.Geo: Tracer
 @everywhere using Genotype
-
-
-
-push!(LOAD_PATH, @__DIR__)
-using Distributed
-using DistributedArrays
-using Genotype
-using Cockatrice.Geo: Tracer
 
 
 DEFAULT_TRACE = [
@@ -56,6 +50,7 @@ function δ_init(;config="./config.yaml", fitness::Function=Genotype.FF.ret_coun
     end
 end
 
+
 function δ_run(;config="./config.yaml", 
                fitness::Function=Genotype.FF.ret_count, 
                workers=workers(),
@@ -85,4 +80,6 @@ function δ_run(;config="./config.yaml",
 
 end
 
-δ_run()
+if "launch" in ARGS
+    δ_run()
+end

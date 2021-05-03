@@ -1,3 +1,7 @@
+module FF
+
+include("Hatchery.jl")
+
 EAX = Hatchery.Unicorn.X86.Register.EAX
 EBX = Hatchery.Unicorn.X86.Register.EBX
 
@@ -44,3 +48,5 @@ function max_ones(g)
   end
 end
 
+
+end # module
